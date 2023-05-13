@@ -106,4 +106,5 @@ func TestCreateTeamSetsOwnerCorrectly(t *testing.T) {
 			IsOwner: true,
 		},
 	)
+	assert.Equal(t, 1, len(newTeam.Members))
 }

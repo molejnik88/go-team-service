@@ -1,0 +1,46 @@
+package adapters
+
+import (
+	"fmt"
+
+	"github.com/molejnik88/go-team-service/domain"
+	"github.com/molejnik88/go-team-service/service_layer"
+)
+
+// TODO: Remove when a db implementation is ready
+type InMemoryRepository struct {
+	Teams map[string]domain.Team
+}
+
+func (r *InMemoryRepository) Add(team *domain.Team) error {
+	r.Teams[team.UUID] = *team
+	return nil
+}
+
+func (r *InMemoryRepository) Get(uuid string) (*domain.Team, error) {
+	if team, ok := r.Teams[uuid]; ok {
+		return &team, nil
+	}
+
+	return nil, fmt.Errorf("team with uuid: %s does not exist", uuid)
+}
+
+// TODO: Remove when a db implementation is ready
+type InMemoryUOW struct {
+	Repository *InMemoryRepository
+	commited   bool
+	rollbacked bool
+}
+
+func (uow *InMemoryUOW) Teams() service_layer.Repository {
+	return uow.Repository
+}
+
+func (uow *InMemoryUOW) Commit() error {
+	uow.commited = true
+	return nil
+}
+
+func (uow *InMemoryUOW) Rollback() {
+	uow.rollbacked = true
+}
