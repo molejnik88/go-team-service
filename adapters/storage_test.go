@@ -1,78 +1,94 @@
 package adapters
 
 import (
-	"testing"
-
 	"github.com/google/uuid"
 	"github.com/molejnik88/go-team-service/domain"
-	"github.com/stretchr/testify/assert"
+	"github.com/molejnik88/go-team-service/service_layer"
+	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func TestSqlRepository(t *testing.T) {
-	t.Run("Dummy test", func(t *testing.T) {
-		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-		assert.Nil(t, err)
+type SqlStorageTestSuite struct {
+	suite.Suite
+	testTeam   *domain.Team
+	testMember *domain.TeamMember
+	db         *gorm.DB
+}
 
-		err = db.AutoMigrate(&domain.Team{}, &domain.TeamMember{})
-		assert.Nil(t, err)
+func (suite *SqlStorageTestSuite) SetupTest() {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	suite.Nil(err)
 
-		team := &domain.Team{
-			UUID:        uuid.NewString(),
-			Name:        "Test sql",
-			Description: "Test create team",
-			Members: []domain.TeamMember{
-				{
-					UUID:    uuid.NewString(),
-					Email:   "fake@example.com",
-					IsAdmin: true,
-					IsOwner: true,
-				},
-			},
-		}
+	err = db.AutoMigrate(&domain.Team{}, &domain.TeamMember{})
+	suite.Nil(err)
 
-		result := db.Create(team)
-		assert.Nil(t, result.Error)
-		assert.Equal(t, int64(1), result.RowsAffected)
-	})
+	suite.db = db
+	suite.testMember = &domain.TeamMember{
+		UUID:    uuid.NewString(),
+		Email:   "fake@example.com",
+		IsAdmin: true,
+		IsOwner: true,
+	}
+	suite.testTeam = &domain.Team{
+		UUID:        uuid.NewString(),
+		Name:        "Test team",
+		Description: "Test create team",
+		Members:     []domain.TeamMember{*suite.testMember},
+	}
+}
 
-	t.Run("Create and Get - GormSqlRepository", func(t *testing.T) {
-		// TODO: move db setup to test setup; check testing.Main
-		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-		assert.Nil(t, err)
+func (suite *SqlStorageTestSuite) TestDBConnection() {
+	result := suite.db.Create(suite.testTeam)
+	suite.Nil(result.Error)
+	suite.Equal(int64(1), result.RowsAffected)
+}
 
-		err = db.AutoMigrate(&domain.Team{}, &domain.TeamMember{})
-		assert.Nil(t, err)
+func (suite *SqlStorageTestSuite) TestAddWithSqlRepository() {
+	repo := GormSqlRepository{suite.db}
 
-		repo := GormSqlRepository{db.Session(&gorm.Session{FullSaveAssociations: true})}
+	err := repo.Add(suite.testTeam)
+	suite.Nil(err)
 
-		createTeam := &domain.Team{
-			UUID:        uuid.NewString(),
-			Name:        "Test repo",
-			Description: "Test create team",
-			Members: []domain.TeamMember{
-				{
-					UUID:    uuid.NewString(),
-					Email:   "fake@example.com",
-					IsAdmin: true,
-					IsOwner: true,
-				},
-			},
-		}
-		err = repo.Add(createTeam)
-		assert.Nil(t, err)
+	fetchTeam := new(domain.Team)
+	suite.db.Take(fetchTeam)
+	suite.Equal(suite.testTeam.Name, fetchTeam.Name)
 
-		fetchTeam, err := repo.Get(createTeam.UUID)
-		assert.Nil(t, err)
+	fetchMember := new(domain.TeamMember)
+	suite.db.Take(fetchMember)
+	suite.Equal(suite.testMember.UUID, fetchMember.UUID)
+	suite.Equal(fetchMember.TeamUUID, fetchTeam.UUID)
+	suite.True(fetchMember.IsAdmin)
+	suite.True(fetchMember.IsOwner)
+}
 
-		assert.Equal(t, createTeam.UUID, fetchTeam.UUID)
-		assert.Equal(t, createTeam.Name, fetchTeam.Name)
-		assert.Equal(t, createTeam.Description, fetchTeam.Description)
-		assert.Equal(t, 1, len(fetchTeam.Members))
-		assert.Equal(t, createTeam.Members[0].UUID, fetchTeam.Members[0].UUID)
-		assert.Equal(t, createTeam.Members[0].Email, fetchTeam.Members[0].Email)
-		assert.Equal(t, createTeam.Members[0].IsAdmin, fetchTeam.Members[0].IsAdmin)
-		assert.Equal(t, createTeam.Members[0].IsOwner, fetchTeam.Members[0].IsOwner)
-	})
+func (suite *SqlStorageTestSuite) TestGetWithSqlRepository() {
+	result := suite.db.Create(suite.testTeam)
+	suite.Nil(result.Error)
+
+	repo := GormSqlRepository{suite.db}
+
+	fetchTeam, err := repo.Get(suite.testTeam.UUID)
+	suite.Nil(err)
+	suite.Equal(suite.testTeam.UUID, fetchTeam.UUID)
+	suite.Equal(1, len(fetchTeam.Members))
+	suite.Equal(suite.testMember.UUID, fetchTeam.Members[0].UUID)
+}
+
+func (suite *SqlStorageTestSuite) TestCreateWithSqlUOW() {
+	uow := &GormSqlUnitOfWork{suite.db, nil, nil}
+	command := &domain.CreateTeamCommand{
+		Name:        "Test team",
+		Description: "Test create team",
+		OwnerEmail:  "fake@example.com",
+	}
+
+	teamUUID, err := service_layer.CreateTeam(command, uow)
+	suite.Nil(err)
+
+	fetchTeam := new(domain.Team)
+	suite.db.First(fetchTeam, "UUID = ?", teamUUID)
+	suite.Equal(command.Name, fetchTeam.Name)
+	suite.Equal(len(fetchTeam.Members), 1)
+	suite.Equal(fetchTeam.Members[0].Email, command.OwnerEmail)
 }

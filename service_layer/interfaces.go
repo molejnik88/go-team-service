@@ -9,6 +9,7 @@ type Repository interface {
 
 type UnitOfWork interface {
 	Teams() Repository
+	Begin() error
 	Commit() error
 	Rollback()
 }
