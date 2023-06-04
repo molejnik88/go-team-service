@@ -5,6 +5,7 @@ import (
 
 	"github.com/molejnik88/go-team-service/domain"
 	"github.com/molejnik88/go-team-service/service_layer"
+	"gorm.io/gorm"
 )
 
 // TODO: Remove when a db implementation is ready
@@ -43,4 +44,21 @@ func (uow *InMemoryUOW) Commit() error {
 
 func (uow *InMemoryUOW) Rollback() {
 	uow.rollbacked = true
+}
+
+type GormSqlRepository struct {
+	DB *gorm.DB
+}
+
+func (r *GormSqlRepository) Add(team *domain.Team) error {
+	result := r.DB.Create(team)
+
+	return result.Error // TODO: implement own errors
+}
+
+func (r *GormSqlRepository) Get(uuid string) (*domain.Team, error) {
+	team := &domain.Team{}
+	result := r.DB.Model(team).Preload("Members").First(team, "uuid = ?", uuid)
+
+	return team, result.Error
 }
