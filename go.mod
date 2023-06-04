@@ -6,6 +6,8 @@ require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.2
+	gorm.io/driver/sqlite v1.5.0
+	gorm.io/gorm v1.25.1
 )
 
 require (
@@ -37,6 +39,4 @@ require (
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/sqlite v1.5.0 // indirect
-	gorm.io/gorm v1.25.1 // indirect
 )

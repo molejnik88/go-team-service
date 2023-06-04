@@ -31,6 +31,10 @@ type FakeUOW struct {
 	rollbacked bool
 }
 
+func (uow *FakeUOW) Begin() error {
+	return nil
+}
+
 func (uow *FakeUOW) Teams() Repository {
 	return uow.repository
 }

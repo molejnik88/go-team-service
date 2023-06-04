@@ -6,6 +6,7 @@ import (
 )
 
 func CreateTeam(command *domain.CreateTeamCommand, uow UnitOfWork) (string, error) {
+	uow.Begin()
 	defer uow.Rollback()
 
 	newTeam := &domain.Team{

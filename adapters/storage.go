@@ -33,6 +33,10 @@ type InMemoryUOW struct {
 	rollbacked bool
 }
 
+func (uow *InMemoryUOW) Begin() error {
+	return nil
+}
+
 func (uow *InMemoryUOW) Teams() service_layer.Repository {
 	return uow.Repository
 }
@@ -61,4 +65,31 @@ func (r *GormSqlRepository) Get(uuid string) (*domain.Team, error) {
 	result := r.DB.Model(team).Preload("Members").First(team, "uuid = ?", uuid)
 
 	return team, result.Error
+}
+
+type GormSqlUnitOfWork struct {
+	db    *gorm.DB
+	tx    *gorm.DB
+	teams *GormSqlRepository
+}
+
+func (uow *GormSqlUnitOfWork) Begin() error {
+	uow.tx = uow.db.Begin()
+	uow.teams = &GormSqlRepository{uow.db}
+
+	return uow.tx.Error
+}
+
+func (uow *GormSqlUnitOfWork) Teams() service_layer.Repository {
+	return uow.teams
+}
+
+func (uow *GormSqlUnitOfWork) Commit() error {
+	uow.tx.Commit()
+
+	return uow.tx.Error
+}
+
+func (uow *GormSqlUnitOfWork) Rollback() {
+	uow.tx.Rollback()
 }
