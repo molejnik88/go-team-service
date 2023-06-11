@@ -1,0 +1,12 @@
+services:
+
+  postgres:
+    image: postgres:15.3
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: manager
+      POSTGRES_DB: team_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - "../db_data:/var/lib/postgresql/data"
