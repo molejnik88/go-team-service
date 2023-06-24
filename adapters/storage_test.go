@@ -1,11 +1,14 @@
 package adapters
 
 import (
+	"sync"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/molejnik88/go-team-service/domain"
 	"github.com/molejnik88/go-team-service/service_layer"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -16,14 +19,15 @@ type SqlStorageTestSuite struct {
 	db         *gorm.DB
 }
 
-func (suite *SqlStorageTestSuite) SetupTest() {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	suite.Nil(err)
-
-	err = db.AutoMigrate(&domain.Team{}, &domain.TeamMember{})
+func (suite *SqlStorageTestSuite) SetupSuite() {
+	dsn := "host=localhost user=test password=test dbname=test port=5432 sslmode=disable"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	suite.Nil(err)
 
 	suite.db = db
+}
+
+func (suite *SqlStorageTestSuite) SetupTest() {
 	suite.testMember = &domain.TeamMember{
 		UUID:    uuid.NewString(),
 		Email:   "fake@example.com",
@@ -38,7 +42,11 @@ func (suite *SqlStorageTestSuite) SetupTest() {
 	}
 }
 
-func (suite *SqlStorageTestSuite) TestDBConnection() {
+func (suite *SqlStorageTestSuite) TearDownTest() {
+	suite.db.Exec("TRUNCATE teams CASCADE")
+}
+
+func (suite *SqlStorageTestSuite) TestDbConnection() {
 	result := suite.db.Create(suite.testTeam)
 	suite.Nil(result.Error)
 	suite.Equal(int64(1), result.RowsAffected)
@@ -53,6 +61,7 @@ func (suite *SqlStorageTestSuite) TestAddWithSqlRepository() {
 	fetchTeam := new(domain.Team)
 	suite.db.Take(fetchTeam)
 	suite.Equal(suite.testTeam.Name, fetchTeam.Name)
+	suite.Equal(suite.testTeam.UUID, fetchTeam.UUID)
 
 	fetchMember := new(domain.TeamMember)
 	suite.db.Take(fetchMember)
@@ -76,7 +85,7 @@ func (suite *SqlStorageTestSuite) TestGetWithSqlRepository() {
 }
 
 func (suite *SqlStorageTestSuite) TestCreateWithSqlUOW() {
-	uow := &GormSqlUnitOfWork{suite.db, nil, nil}
+	uow := &GormSqlUnitOfWork{db: suite.db}
 	command := &domain.CreateTeamCommand{
 		Name:        "Test team",
 		Description: "Test create team",
@@ -87,8 +96,65 @@ func (suite *SqlStorageTestSuite) TestCreateWithSqlUOW() {
 	suite.Nil(err)
 
 	fetchTeam := new(domain.Team)
-	suite.db.First(fetchTeam, "UUID = ?", teamUUID)
+	result := suite.db.Model(fetchTeam).Preload("Members").First(fetchTeam, "uuid = ?", teamUUID)
+	suite.Nil(result.Error)
 	suite.Equal(command.Name, fetchTeam.Name)
-	suite.Equal(len(fetchTeam.Members), 1)
+	suite.Equal(1, len(fetchTeam.Members))
 	suite.Equal(fetchTeam.Members[0].Email, command.OwnerEmail)
+}
+
+func (suite *SqlStorageTestSuite) TestUOWRollback() {
+	uow := &GormSqlUnitOfWork{db: suite.db}
+	uow.Begin()
+	uow.Teams().Add(suite.testTeam)
+	uow.Rollback()
+
+	var teams []domain.Team
+	result := suite.db.Find(&teams)
+	suite.Nil(result.Error)
+	suite.Equal(int64(0), result.RowsAffected)
+}
+
+func (suite *SqlStorageTestSuite) TestUOWCommitAfterRollbackFails() {
+	uow := &GormSqlUnitOfWork{db: suite.db}
+	uow.Begin()
+	uow.Teams().Add(suite.testTeam)
+	uow.Rollback()
+
+	uow.Teams().Add(suite.testTeam)
+	err := uow.Commit()
+	suite.Error(err)
+
+	var teams []domain.Team
+	result := suite.db.Find(&teams)
+	suite.Nil(result.Error)
+	suite.Equal(int64(0), result.RowsAffected)
+}
+
+func (suite *SqlStorageTestSuite) TestUOWConcurrentWrites() {
+	var wg sync.WaitGroup
+	names := [...]string{"Test1", "Test2"}
+
+	fc := func(name string) {
+		defer wg.Done()
+		uow := &GormSqlUnitOfWork{db: suite.db}
+		uow.Begin()
+		uow.Teams().Add(&domain.Team{UUID: uuid.NewString(), Name: name})
+		uow.Commit()
+	}
+
+	for _, teamName := range names {
+		wg.Add(1)
+		go fc(teamName)
+	}
+	wg.Wait()
+
+	var teams []domain.Team
+	result := suite.db.Find(&teams)
+	suite.Nil(result.Error)
+	suite.Equal(int64(2), result.RowsAffected)
+}
+
+func TestSqlStorageTestSuite(t *testing.T) {
+	suite.Run(t, new(SqlStorageTestSuite))
 }
