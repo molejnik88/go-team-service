@@ -14,7 +14,7 @@ func CreateTeam(command *domain.CreateTeamCommand, uow UnitOfWork) (string, erro
 		Name:        command.Name,
 		Description: command.Description,
 		Members: []domain.TeamMember{
-			{Email: command.OwnerEmail, IsAdmin: true, IsOwner: true},
+			{UUID: uuid.NewString(), Email: command.OwnerEmail, IsAdmin: true, IsOwner: true},
 		},
 	}
 

@@ -55,9 +55,7 @@ type GormSqlRepository struct {
 }
 
 func (r *GormSqlRepository) Add(team *domain.Team) error {
-	result := r.DB.Create(team)
-
-	return result.Error // TODO: implement own errors
+	return r.DB.Create(team).Error
 }
 
 func (r *GormSqlRepository) Get(uuid string) (*domain.Team, error) {
@@ -75,7 +73,7 @@ type GormSqlUnitOfWork struct {
 
 func (uow *GormSqlUnitOfWork) Begin() error {
 	uow.tx = uow.db.Begin()
-	uow.teams = &GormSqlRepository{uow.db}
+	uow.teams = &GormSqlRepository{uow.tx}
 
 	return uow.tx.Error
 }
@@ -85,9 +83,7 @@ func (uow *GormSqlUnitOfWork) Teams() service_layer.Repository {
 }
 
 func (uow *GormSqlUnitOfWork) Commit() error {
-	uow.tx.Commit()
-
-	return uow.tx.Error
+	return uow.tx.Commit().Error
 }
 
 func (uow *GormSqlUnitOfWork) Rollback() {
