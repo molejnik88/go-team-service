@@ -22,3 +22,6 @@ go.work
 
 # Local database data
 db_data
+
+# example requests
+test_requests

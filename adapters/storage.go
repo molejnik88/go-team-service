@@ -89,3 +89,7 @@ func (uow *GormSqlUnitOfWork) Commit() error {
 func (uow *GormSqlUnitOfWork) Rollback() {
 	uow.tx.Rollback()
 }
+
+func NewSqlUnitOfWork(db *gorm.DB) *GormSqlUnitOfWork {
+	return &GormSqlUnitOfWork{db: db}
+}
