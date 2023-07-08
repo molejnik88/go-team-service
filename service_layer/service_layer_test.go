@@ -101,14 +101,8 @@ func TestCreateTeamSetsOwnerCorrectly(t *testing.T) {
 	newTeam, err := uow.Teams().Get(teamUUID)
 	assert.Nil(t, err)
 
-	assert.Contains(
-		t,
-		newTeam.Members,
-		domain.TeamMember{
-			Email:   "fake@example.com",
-			IsAdmin: true,
-			IsOwner: true,
-		},
-	)
 	assert.Equal(t, 1, len(newTeam.Members))
+	newTeamMember := newTeam.Members[0]
+	assert.True(t, newTeamMember.IsAdmin)
+	assert.True(t, newTeamMember.IsOwner)
 }

@@ -1,0 +1,15 @@
+name: "Run tests"
+
+on:
+  push:
+    branches:
+      - "feature/**"
+jobs:
+  unit_tests:
+    runs-on: ubuntu-latest
+    name: Unit tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.3
+      - name: Unit tests
+        run: docker build -t team_app:unit_tests --target unit_tests -f dockerfiles/Dockerfile .
