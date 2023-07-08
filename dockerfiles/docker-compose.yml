@@ -11,3 +11,12 @@ services:
     volumes:
       - "../db_data:/var/lib/postgresql/data"
       - "../initdb:/docker-entrypoint-initdb.d"
+
+  team_app:
+    build:
+      context: ./..
+      dockerfile: dockerfiles/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres

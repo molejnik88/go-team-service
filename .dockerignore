@@ -1,0 +1,7 @@
+LICENSE
+README.md
+.gitignore
+.dockerignore
+dockerfiles
+db_data
+test_requests
