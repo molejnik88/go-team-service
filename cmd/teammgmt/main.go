@@ -70,7 +70,7 @@ func NewServiceWithConfig(c Config) *Service {
 
 func main() {
 	conf := Config{
-		DbHost:     "localhost",
+		DbHost:     "postgres",
 		DbUser:     "manager",
 		DbPassword: "password",
 		DbName:     "team_app",
