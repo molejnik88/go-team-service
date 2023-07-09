@@ -12,4 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3.5.3
       - name: Unit tests
-        run: docker build -t team_app:unit_tests --target unit_tests -f dockerfiles/Dockerfile .
+        run: make unit_tests
+  integration_tests:
+    runs-on: ubuntu-latest
+    name: Integration tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.3
+      - name: Integration tests
+        run: make integration_tests

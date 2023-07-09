@@ -3,6 +3,8 @@ README.md
 .gitignore
 .dockerignore
 dockerfiles
-db_data
+volumes
 test_requests
 .github
+Makefile
+

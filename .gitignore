@@ -20,8 +20,8 @@
 # Go workspace file
 go.work
 
-# Local database data
-db_data
+# Local docker volumes
+volumes
 
 # example requests
 test_requests

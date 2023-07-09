@@ -15,3 +15,6 @@ ENTRYPOINT [ "/bin/teammgmt" ]
 
 FROM build AS unit_tests
 RUN go test github.com/molejnik88/go-team-service/service_layer
+
+FROM build AS integration_tests
+RUN go test github.com/molejnik88/go-team-service/adapters
