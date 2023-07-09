@@ -13,8 +13,12 @@ FROM alpine:3.18 AS runtime
 COPY --from=build /usr/src/app/bin/teammgmt /bin/teammgmt
 ENTRYPOINT [ "/bin/teammgmt" ]
 
+# CI
 FROM build AS unit_tests
 RUN go test github.com/molejnik88/go-team-service/service_layer
 
 FROM build AS integration_tests
 RUN go test github.com/molejnik88/go-team-service/adapters
+
+FROM build AS component_tests
+RUN go test github.com/molejnik88/go-team-service/cmd/teammgmt

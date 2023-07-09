@@ -10,7 +10,12 @@ test_db_migrate: test_db
 
 integration_tests: test_db_migrate
 	docker build --network=host -t team_app:integration_tests --target integration_tests -f dockerfiles/Dockerfile .
-	$(compose) down
 
 unit_tests:
 	docker build -t team_app:unit_tests --target unit_tests -f dockerfiles/Dockerfile .
+
+component_tests: test_db_migrate
+	docker build --network=host -t team_app:component_tests --target component_tests -f dockerfiles/Dockerfile .
+
+down:
+	$(compose) down
