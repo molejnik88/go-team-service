@@ -9,14 +9,21 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - "../db_data:/var/lib/postgresql/data"
+      - "../volumes/db_data:/var/lib/postgresql/data"
       - "../initdb:/docker-entrypoint-initdb.d"
+
+  wait:
+    image: dokku/wait:sha-c7cd26e
+    command: [ "-c", "postgres:5432" ]
+    depends_on:
+      - postgres
 
   team_app:
     build:
       context: ./..
       dockerfile: dockerfiles/Dockerfile
+      target: runtime
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      - wait
