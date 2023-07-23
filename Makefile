@@ -19,3 +19,6 @@ component_tests: test_db_migrate
 
 down:
 	$(compose) down
+
+up:
+	$(compose) up -d --build

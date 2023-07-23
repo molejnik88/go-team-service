@@ -19,6 +19,7 @@ func createTeam(c *gin.Context) {
 		return
 	}
 
+	// TODO: pass commands by value
 	command := &domain.CreateTeamCommand{
 		Name:        createTeam.Name,
 		Description: createTeam.Description,
@@ -51,4 +52,27 @@ func fetchTeam(c *gin.Context) {
 
 	responseBody.fromTeamModel(team)
 	c.JSON(http.StatusOK, responseBody)
+}
+
+func addMember(c *gin.Context) {
+	var addMember AddTeamMemberRequestBody
+	teamUUID := c.Param("uuid")
+	uow := adapters.NewSqlUnitOfWork(DB)
+
+	if err := c.ShouldBindJSON(&addMember); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	command := &domain.AddTeamMember{
+		TeamUUID: teamUUID,
+		Email:    addMember.UserEmail,
+		IsAdmin:  addMember.IsAdmin,
+	}
+
+	err := service_layer.AddTeamMember(command, uow)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusCreated)
 }

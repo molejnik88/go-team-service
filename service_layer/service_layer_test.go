@@ -19,10 +19,19 @@ func (r *FakeRepository) Add(team *domain.Team) error {
 
 func (r *FakeRepository) Get(uuid string) (*domain.Team, error) {
 	if team, ok := r.teams[uuid]; ok {
-		return &team, nil
+		teamCopy := team
+		MembersCopy := make([]domain.TeamMember, len(team.Members))
+		copy(MembersCopy, team.Members)
+		teamCopy.Members = MembersCopy
+
+		return &teamCopy, nil
 	}
 
 	return nil, fmt.Errorf("Team with uuid: %s does not exist", uuid)
+}
+
+func (r *FakeRepository) Update(team *domain.Team) error {
+	return r.Add(team)
 }
 
 type FakeUOW struct {
@@ -105,4 +114,36 @@ func TestCreateTeamSetsOwnerCorrectly(t *testing.T) {
 	newTeamMember := newTeam.Members[0]
 	assert.True(t, newTeamMember.IsAdmin)
 	assert.True(t, newTeamMember.IsOwner)
+}
+
+func TestAddMemberWhenLimitNotExceededSucceeds(t *testing.T) {
+	createCommand := &domain.CreateTeamCommand{
+		Name:        "Test Team",
+		Description: "Test Description",
+		OwnerEmail:  "fake@example.com",
+	}
+	uow := &FakeUOW{
+		repository: &FakeRepository{
+			teams: make(map[string]domain.Team),
+		},
+		commited:   false,
+		rollbacked: false,
+	}
+
+	teamUUID, err := CreateTeam(createCommand, uow)
+	assert.Nil(t, err)
+
+	addMemberCommand := &domain.AddTeamMember{
+		TeamUUID: teamUUID,
+		Email:    "fake1@example.com",
+		IsAdmin:  false,
+	}
+
+	err = AddTeamMember(addMemberCommand, uow)
+	assert.Nil(t, err)
+
+	team, err := uow.Teams().Get(teamUUID)
+	assert.Nil(t, err)
+
+	assert.Len(t, team.Members, 2)
 }
