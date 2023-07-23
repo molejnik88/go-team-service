@@ -5,3 +5,9 @@ type CreateTeamCommand struct {
 	Description string
 	OwnerEmail  string
 }
+
+type AddTeamMember struct {
+	TeamUUID string
+	Email    string
+	IsAdmin  bool
+}

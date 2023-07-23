@@ -14,8 +14,8 @@ import (
 
 type SqlStorageTestSuite struct {
 	suite.Suite
-	testTeam   *domain.Team
-	testMember *domain.TeamMember
+	testTeam   domain.Team
+	testMember domain.TeamMember
 	db         *gorm.DB
 }
 
@@ -28,17 +28,17 @@ func (suite *SqlStorageTestSuite) SetupSuite() {
 }
 
 func (suite *SqlStorageTestSuite) SetupTest() {
-	suite.testMember = &domain.TeamMember{
+	suite.testMember = domain.TeamMember{
 		UUID:    uuid.NewString(),
 		Email:   "fake@example.com",
 		IsAdmin: true,
 		IsOwner: true,
 	}
-	suite.testTeam = &domain.Team{
+	suite.testTeam = domain.Team{
 		UUID:        uuid.NewString(),
 		Name:        "Test team",
 		Description: "Test create team",
-		Members:     []domain.TeamMember{*suite.testMember},
+		Members:     []domain.TeamMember{suite.testMember},
 	}
 }
 
@@ -47,7 +47,7 @@ func (suite *SqlStorageTestSuite) TearDownTest() {
 }
 
 func (suite *SqlStorageTestSuite) TestDbConnection() {
-	result := suite.db.Create(suite.testTeam)
+	result := suite.db.Create(&suite.testTeam)
 	suite.Nil(result.Error)
 	suite.Equal(int64(1), result.RowsAffected)
 }
@@ -55,7 +55,7 @@ func (suite *SqlStorageTestSuite) TestDbConnection() {
 func (suite *SqlStorageTestSuite) TestAddWithSqlRepository() {
 	repo := GormSqlRepository{suite.db}
 
-	err := repo.Add(suite.testTeam)
+	err := repo.Add(&suite.testTeam)
 	suite.Nil(err)
 
 	fetchTeam := new(domain.Team)
@@ -72,7 +72,7 @@ func (suite *SqlStorageTestSuite) TestAddWithSqlRepository() {
 }
 
 func (suite *SqlStorageTestSuite) TestGetWithSqlRepository() {
-	result := suite.db.Create(suite.testTeam)
+	result := suite.db.Create(&suite.testTeam)
 	suite.Nil(result.Error)
 
 	repo := GormSqlRepository{suite.db}
@@ -103,32 +103,32 @@ func (suite *SqlStorageTestSuite) TestCreateWithSqlUOW() {
 	suite.Equal(fetchTeam.Members[0].Email, command.OwnerEmail)
 }
 
-func (suite *SqlStorageTestSuite) TestUOWRollback() {
-	uow := &GormSqlUnitOfWork{db: suite.db}
-	uow.Begin()
-	uow.Teams().Add(suite.testTeam)
-	uow.Rollback()
+func (suite *SqlStorageTestSuite) TestAddMemberWithSqlUOW() {
+	var uow *GormSqlUnitOfWork
 
-	var teams []domain.Team
-	result := suite.db.Find(&teams)
-	suite.Nil(result.Error)
-	suite.Equal(int64(0), result.RowsAffected)
-}
+	uow = &GormSqlUnitOfWork{db: suite.db}
+	createCommand := &domain.CreateTeamCommand{
+		Name:        "Test team",
+		Description: "Test create team",
+		OwnerEmail:  "fake@example.com",
+	}
 
-func (suite *SqlStorageTestSuite) TestUOWCommitAfterRollbackFails() {
-	uow := &GormSqlUnitOfWork{db: suite.db}
-	uow.Begin()
-	uow.Teams().Add(suite.testTeam)
-	uow.Rollback()
+	teamUUID, err := service_layer.CreateTeam(createCommand, uow)
+	suite.Nil(err)
 
-	uow.Teams().Add(suite.testTeam)
-	err := uow.Commit()
-	suite.Error(err)
+	uow = &GormSqlUnitOfWork{db: suite.db}
+	addCommand := &domain.AddTeamMember{
+		TeamUUID: teamUUID,
+		Email:    "fake2@example.com",
+		IsAdmin:  false,
+	}
+	err = service_layer.AddTeamMember(addCommand, uow)
+	suite.Nil(err)
 
-	var teams []domain.Team
-	result := suite.db.Find(&teams)
-	suite.Nil(result.Error)
-	suite.Equal(int64(0), result.RowsAffected)
+	r := &GormSqlRepository{suite.db}
+	fetchTeam, err := r.Get(teamUUID)
+	suite.Nil(err)
+	suite.Len(fetchTeam.Members, 2)
 }
 
 func (suite *SqlStorageTestSuite) TestUOWConcurrentWrites() {
@@ -138,9 +138,11 @@ func (suite *SqlStorageTestSuite) TestUOWConcurrentWrites() {
 	fc := func(name string) {
 		defer wg.Done()
 		uow := &GormSqlUnitOfWork{db: suite.db}
-		uow.Begin()
-		uow.Teams().Add(&domain.Team{UUID: uuid.NewString(), Name: name})
-		uow.Commit()
+		c := &domain.CreateTeamCommand{
+			Name:       name,
+			OwnerEmail: "fake@example.com",
+		}
+		service_layer.CreateTeam(c, uow)
 	}
 
 	for _, teamName := range names {

@@ -40,6 +40,7 @@ func (srv *Service) setupRouter() {
 	})
 	r.POST("/teams", createTeam)
 	r.GET("/teams/:uuid", fetchTeam)
+	r.POST("/teams/:uuid/add_member", addMember)
 
 	srv.Router = r
 }

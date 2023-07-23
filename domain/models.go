@@ -16,6 +16,13 @@ type Team struct {
 	DeletedAt   gorm.DeletedAt
 }
 
+func (team *Team) AddMember(m TeamMember) error {
+	// TODO: Limit number of members
+	team.Members = append(team.Members, m)
+
+	return nil
+}
+
 type TeamMember struct {
 	UUID      string `gorm:"primaryKey"`
 	TeamUUID  string

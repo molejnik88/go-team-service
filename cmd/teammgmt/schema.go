@@ -39,3 +39,8 @@ func (ft *FetchTeamResponseBody) fromTeamModel(team *domain.Team) {
 		}
 	}
 }
+
+type AddTeamMemberRequestBody struct {
+	UserEmail string `json:"user_email" binding:"required"`
+	IsAdmin   bool   `json:"is_admin"`
+}
